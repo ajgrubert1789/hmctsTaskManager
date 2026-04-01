@@ -1,0 +1,258 @@
+/**
+ * TASK MANAGER STYLESHEET
+ */
+
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  text-decoration: none;
+  list-style: none;
+}
+
+:root {
+  /* Colour Palette */
+  --bg-color: #FDFDF0;      /* Soft cream background */
+  --text-color: #2D2D2D;    /* Dark charcoal for readability */
+  --primary-color: #FFFFFF; /* Pure white for cards */
+  --blue-color: #A7C7E7;    /* Pastel blue for "Add" actions */
+  --red-color: #FF6347;     /* Tomato red for "Update/Delete" */
+  
+  /* Effects */
+  --shadow: 0 4px 6px rgba(0,0,0,0.05);
+  --transition: all 0.2s ease-in-out;
+}
+
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+.container {
+  margin-top: 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 800px; /* Limits width on desktop */
+  min-width: 800px;
+}
+
+/* 3. Header Section */
+.task-header {
+  /* background-color: #000000;
+  color: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: var(--shadow); */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-weight: 600;
+  flex-direction: column
+
+}
+
+.task-header h1 {
+  font-size: clamp(24px, 5vw, 40px);
+  margin-bottom: 5px;
+  text-align: center;
+}
+
+.task-header span {
+  display: block;
+  font-size: 25px;
+  opacity: 0.8;
+  text-align: center;
+}
+
+/* 4. Form Inputs & Text Areas */
+.task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.task-form input, 
+.description-text-area, 
+.id-search-bar,
+.task-li-text {
+  padding: 15px;
+  width: 100%;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background-color: #fafafa;
+  color: var(--text-color);
+  outline: none;
+  font-size: 16px;
+  transition: var(--transition);
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.description-text-area{
+  resize: none;
+}
+
+
+.task-form input:focus {
+  border-color: var(--bg-color);
+  background-color: #fff;
+}
+
+
+.task-li-text {
+  resize: none;
+  overflow-y: auto;
+  min-height: 100px;
+  max-height: 200px;
+}
+
+/* 5. Buttons */
+button {
+  font-weight: 600;
+  transition: var(--transition);
+  cursor: pointer;
+  border: none;
+}
+
+button:active {
+  transform: scale(0.98); /* "Press" effect */
+}
+
+#add-task-button, 
+#update-task-button {
+  width: 100%;
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 16px;
+  color: white;
+}
+
+#add-task-button { background-color: var(--blue-color); }
+#update-task-button { background-color: var(--red-color); }
+
+#add-task-button:hover, 
+#update-task-button:hover {
+  filter: brightness(0.85);
+}   
+
+/* Icon Buttons (Done/Delete) */
+.done-btn, .delete-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: var(--primary-color);
+  border-radius: 8px;
+}
+
+.done-btn:hover, .delete-btn:hover {
+  transform: scale(1.1);
+}
+
+
+.task-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 100px;
+  overflow-y: auto;  
+  scrollbar-width: none;
+  max-height: 800px;
+
+  
+}
+
+
+
+.task-list li {
+  background-color: var(--primary-color);
+  padding: 20px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--shadow);
+}
+
+.task-list .task-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
+}
+
+/* 7. States (Completed) */
+.task-completed {
+  opacity: 0.6;
+  filter: grayscale(100%);
+  border-left-color: #ccc !important;
+}
+
+.task-completed .task-header,
+.task-completed .task-li-text {
+  text-decoration: line-through;
+}
+
+/* 8. Tabs Navigation */
+.tab-header {
+  display: flex;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tab-btn {
+  padding: 10px 15px;
+  background: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: #64748b;
+  border-bottom: 2px solid transparent;
+}
+
+.tab-btn.active {
+  color: white;
+  font-weight: 600;
+  background-color: black;
+  border-radius: 4px 4px 0 0;
+}
+
+.list-section h3{
+    padding-top: 10px;
+    padding: 10px;
+
+}
+
+.sticky-search-container {
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-color); 
+  z-index: 10;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 10px;
+}
+
+.tasks-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
