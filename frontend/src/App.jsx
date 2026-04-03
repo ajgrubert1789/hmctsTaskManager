@@ -1,6 +1,10 @@
-import { useEffect, useState, useMemo} from "react";
+import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { BiCircle, BiChevronDownCircle, BiSolidTrash } from "react-icons/bi";
+import CompletedTasks from "./components/CompletedTasks";
+import ActiveTasks from "./components/ActiveTasks";
+import AddTask from "./components/AddTask";
+import UpdateTask from "./components/UpdateTask";
 
 function App() {
   // -----------------------------
@@ -11,10 +15,43 @@ function App() {
   const [titleInput, setTitleInput] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [searchId, setSearchId] = useState("");
+  const [activeTab, setActiveTab] = useState("create");
+  
+  
+  const syncExpiredTasks = async (fetchedTasks) => {
+  const now = new Date();
 
-  const [activeTab, setActiveTab] = useState("create"); 
+    const needsAutoUpdate = fetchedTasks.filter((task) => {
+      
+      if (
+        !task.dueDateTime ||
+        task.status === true ||
+        task.isManualOverride === true
+      ) {
+        return false;
+      }
+      const dueDate = new Date(task.dueDateTime.replace(" ", "T"));
+      return dueDate < now;
+    });
 
-  const now = new Date().toISOString().slice(0, 16);
+    if (needsAutoUpdate.length > 0) {
+      try {
+        await Promise.all(
+          needsAutoUpdate.map((t) =>
+            axios.put(`http://localhost:8082/tasks/${t.taskId}`, {
+              ...t,
+              status: true,
+            }),
+          ),
+        );
+        // Fetch fresh data and set state directly to break the loop
+        const finalResponse = await axios.get("http://localhost:8082/tasks");
+        setTasks(finalResponse.data);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
 
   // -----------------------------
   // Fetch all tasks
@@ -23,6 +60,7 @@ function App() {
     try {
       const response = await axios.get("http://localhost:8082/tasks");
       setTasks(response.data);
+      syncExpiredTasks(response.data);
     } catch (error) {
       console.log(error);
     }
@@ -38,40 +76,6 @@ function App() {
 
     fetchTasks();
   }, []);
-
-
-
-
-  
-
-  // // -----------------------------
-  // // Auto-mark expired tasks
-  // // -----------------------------
-  // const checkAndMarkExpiredTasks = async (taskList) => {
-  //   const now = new Date();
-
-  //   const expiredTasks = taskList.filter(task => {
-  //     if (!task.dueDateTime || task.status === true) return false;
-  //     const dueDate = new Date(task.dueDateTime.replace(" ", "T"));
-  //     return dueDate < now;
-  //   });
-
-  //   if (expiredTasks.length > 0) {
-  //     try {
-  //       const updatePromises = expiredTasks.map(task =>
-  //         axios.put(`http://localhost:8082/tasks/${task.taskId}`, {
-  //           ...task,
-  //           status: true
-  //         })
-  //       );
-
-  //       await Promise.all(updatePromises);
-  //       getAllTasks();
-  //     } catch (error) {
-  //       console.error("Error updating expired tasks:", error);
-  //     }
-  //   }
-  // };
 
   const tasksWithExpiry = useMemo(() => {
     const now = new Date();
@@ -137,64 +141,81 @@ function App() {
   const updateTask = async (e) => {
     e.preventDefault();
 
+    // Ensure there is an ID to search for
+    if (!searchId) {
+      alert("Please enter a Task ID");
+      return;
+    }
+
     const existingTask = tasks.find((t) => t.taskId.toString() === searchId);
+
     if (!existingTask) {
       alert("Task ID not found!");
       return;
     }
 
     try {
-       const payload = {
-  taskId: existingTask.taskId,
-  // If the user typed something, use it; otherwise, keep the old one
-  title: titleInput.trim() !== "" ? titleInput.trim() : existingTask.title,
-  description: taskInput.trim() !== "" ? taskInput.trim() : existingTask.description,
-  status: existingTask.status,
-  dueDateTime: selectedDate
-    ? selectedDate.replace("T", " ") + ":00"
-    : existingTask.dueDateTime,
-};
-
-      // 1. Wait for the server to finish the update
+      const payload = {
+        taskId: existingTask.taskId,
+        title: titleInput.trim() || existingTask.title,
+        description: taskInput.trim() || existingTask.description,
+        status: existingTask.status,
+        dueDateTime: selectedDate
+          ? selectedDate.replace("T", " ") + ":00"
+          : existingTask.dueDateTime,
+      };
       await axios.put(`http://localhost:8082/tasks/${searchId}`, payload);
 
-      // 2. IMPORTANT: Wait for the fresh data to be saved into React State
-      await getAllTasks(); 
+      await getAllTasks();
 
-      // 3. NOW clear the inputs and alert
       setTaskInput("");
       setTitleInput("");
-      setSelectedDate(""); // Clear this too
-      setSearchId(""); 
-      
+      setSelectedDate("");
+      setSearchId("");
+
       alert("Task updated!");
     } catch (error) {
       console.error("Update failed:", error);
+      alert("Update failed. Please check the console for details.");
     }
   };
 
-  
-
   const toggleStatus = async (task) => {
-    // Use _isExpired to tell the linter you are intentionally ignoring it
     const { isExpired: _isExpired, ...taskData } = task;
+
+    const isPastDue =
+      task.dueDateTime &&
+      new Date(task.dueDateTime.replace(" ", "T")) < new Date();
+    const movingToActive = task.status === true; // true (done) -> false (active)
 
     try {
       await axios.put(`http://localhost:8082/tasks/${task.taskId}`, {
         ...taskData,
         status: !task.status,
+        // If moving back to active while expired, trigger the shield
+        isManualOverride:
+          movingToActive && isPastDue ? true : task.isManualOverride,
       });
-      getAllTasks();
+
+      await getAllTasks();
     } catch (error) {
-      console.error("Error flipping status:", error);
+      console.error("Manual toggle failed:", error);
     }
+  };
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setTaskInput("");
+    setTitleInput("");
+    setSelectedDate("");
+    setSearchId("");
   };
 
   const tabList = [
     { id: "create", label: "Add" },
     { id: "update", label: "Update" },
     { id: "search-tasks", label: "Search" },
-    {id:"completed", label:"Completed"}
+    { id: "completed", label: "Completed" },
   ];
 
   // -----------------------------
@@ -204,7 +225,7 @@ function App() {
     <div className="container">
       <div className="task-header">
         <h1>HMCTS Task Manager</h1>
-        <span>Remember, it's easy to forget...</span>
+        <span>Remember, it's easy to forget.</span>
       </div>
 
       {/* Tabs */}
@@ -213,7 +234,12 @@ function App() {
           <button
             key={tab.id}
             className={activeTab === tab.id ? "tab-btn active" : "tab-btn"}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => {
+              setActiveTab(tab.id);
+              handleTabChange(tab.id);
+              syncExpiredTasks(tasks); 
+              
+            }}
           >
             {tab.label}
           </button>
@@ -222,339 +248,60 @@ function App() {
 
       <div className="tab-content">
         {activeTab === "create" && (
-          <form className="task-form" onSubmit={createTask}>
-            <h3>Add New Task:</h3>
-
-            <div className="input-group">
-              <label>Task Title</label>
-              <input
-                type="text"
-                value={titleInput}
-                onChange={(e) => setTitleInput(e.target.value)}
-                placeholder="Name of your task?"
-                required
-              />
-            </div>
-
-            <div className="input-group">
-              <label>Due Date & Time</label>
-              <input
-                type="datetime-local"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                min={now}
-                required
-              />
-            </div>
-
-            <div className="input-group">
-              <label>Description (Max 500 chars)</label>
-              <textarea
-                className="description-text-area"
-                value={taskInput}
-                onChange={(e) => setTaskInput(e.target.value)}
-                maxLength={500}
-                placeholder="Add more details..."
-                rows={4}
-                required
-              />
-              <small className="char-count">{taskInput.length}/500</small>
-            </div>
-
-            <button id="add-task-button" type="submit">
-              Add Task
-            </button>
-            
-          </form>
-          
-          
+          <AddTask
+            createTask={createTask}
+            taskInput={taskInput}
+            setTaskInput={setTaskInput}
+            titleInput={titleInput}
+            setTitleInput={setTitleInput}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+          />
         )}
 
         {activeTab === "update" && (
-          <div className="update-container">
-            <form className="task-form" onSubmit={updateTask}>
-              <h3>Update Task:</h3>
-
-              <input
-                className="id-search-bar"
-                type="text"
-                placeholder="Enter an ID to Edit"
-                value={searchId}
-                onChange={(e) => setSearchId(e.target.value)}
-              />
-
-              <div className="input-group">
-                <label>Task Title</label>
-                <input
-                  type="text"
-                  value={titleInput}
-                  onChange={(e) => setTitleInput(e.target.value)}
-                  placeholder="Name of your task?"
-                />
-              </div>
-
-              <div className="input-group">
-                <label>Due Date & Time</label>
-                <input
-                  type="datetime-local"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  min={now}
-                />
-              </div>
-
-              <div className="input-group">
-                <label>Description ({taskInput.length}/500)</label>
-                <textarea 
-                  className="description-text-area"
-                  value={taskInput}
-                  onChange={(e) => setTaskInput(e.target.value)}
-                  maxLength={500}
-                  placeholder="Add more details..."
-                  rows={4}
-                />
-              </div>
-
-              <button id="update-task-button" type="submit">
-                Update Task
-              </button>
-            </form>
-            
+          <>
+            <UpdateTask
+              updateTask={updateTask}
+              searchId={searchId}
+              setSearchId={setSearchId}
+              taskInput={taskInput}
+              setTaskInput={setTaskInput}
+              titleInput={titleInput}
+              setTitleInput={setTitleInput}
+              selectedDate={selectedDate}
+              setSelectedDate={setSelectedDate}
+              tasks={tasks}
+            />
             <br />
-            
-            <div className="tasks-container">
-            <div className="sticky-search">
-              <h3>Search by ID:</h3>
-              <br />
-              <input
-                className="id-search-bar"
-                type="text"
-                placeholder="Enter an ID to filter..."
-                value={searchId}
-                onChange={(e) => setSearchId(e.target.value)}
-              />
-            </div>
-
-            <ul className="task-list">
-              {tasksWithExpiry
-              .filter((task) => task.status === false)
-                .filter(
-                  (task) =>
-                    searchId === "" || task.taskId.toString() === searchId,
-                )
-                .map((task) => (
-                  <li
-                    key={task.taskId}
-                    className={`task-item ${task.status ? "task-completed" : ""} ${task.isExpired ? "task-expired" : ""}`}
-                  >
-                    <h3 className="task-header">
-                        <span>Task ID: {task.taskId}</span>
-                        <span>Task Title: {task.title}</span>
-                        <span>Due Date: {task.dueDateTime.slice(0, 10)}</span>
-                        <span>Due Time: {task.dueDateTime.slice(11, 16)}</span>
-                    </h3>
-
-                    <hr className="task-divider" />
-
-                    <textarea className="task-li-text" readOnly key={task.description} value={task.description} >
-                      {task.description}
-                    </textarea>
-
-                    <div className="task-btns">
-                      <button
-                        className="delete-btn"
-                        onClick={() => deleteTask(task.taskId)}
-                      >
-                        <BiSolidTrash />
-                      </button>
-                      <button
-                        className="done-btn"
-                        onClick={() => toggleStatus(task)}
-                      >
-                        {task.status ? <BiChevronDownCircle /> : <BiCircle />}
-                      </button>
-                    </div>
-                  </li>
-                ))}
-            </ul>
-          </div>
-
-            {/* <div className="list-section">
-              <h3>All Tasks:</h3>
-
-              <ul className="task-list">
-                <div className="sticky-search-container">
-                  <h3>Search by ID:</h3>
-
-                  <input
-                    className="id-search-bar"
-                    type="text"
-                    placeholder="Enter an ID to Edit"
-                    value={searchId}
-                    onChange={(e) => setSearchId(e.target.value)}
-                  />
-                </div>
-
-                {tasks
-                  .filter(
-                    (task) =>
-                      searchId === "" || task.taskId.toString() === searchId,
-                  )
-                  .map((task) => (
-                    <li
-                      key={task.taskId}
-                      className={`task-item ${task.status ? "task-completed" : ""}`}
-                    >
-                      <h3 className="task-header">
-                        <span>Task ID: {task.taskId}</span>
-                        <span>Task Title: {task.title}</span>
-                        <span>Due Date: {task.dueDateTime.slice(0, 10)}</span>
-                        <span>Due Time: {task.dueDateTime.slice(11, 16)}</span>
-                      </h3>
-
-                      <hr className="task-divider" />
-
-                      <textarea className="task-li-text" readOnly>
-                        {task.description}
-                      </textarea>
-
-                      <div className="task-btns">
-                        <button
-                          className="delete-btn"
-                          onClick={() => deleteTask(task.taskId)}
-                        >
-                          <BiSolidTrash />
-                        </button>
-
-                        <button
-                          className="done-btn"
-                          onClick={() => toggleStatus(task)}
-                        >
-                          {task.status ? <BiChevronDownCircle /> : <BiCircle />}
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-              </ul>
-            </div> */}
-          </div>
+            <ActiveTasks
+              tasksWithExpiry={tasksWithExpiry}
+              searchId={searchId}
+              setSearchId={setSearchId}
+              deleteTask={deleteTask}
+              toggleStatus={toggleStatus}
+            />
+          </>
         )}
+
         {activeTab === "search-tasks" && (
-          <div className="tasks-container">
-            <div className="sticky-search">
-              <h3>Search by ID:</h3>
-              <br />
-              <input
-                className="id-search-bar"
-                type="text"
-                placeholder="Enter an ID to filter..."
-                value={searchId}
-                onChange={(e) => setSearchId(e.target.value)}
-              />
-            </div>
-
-            <ul className="task-list">
-              {tasksWithExpiry
-              .filter((task) => task.status === false)
-                .filter(
-                  (task) =>
-                    searchId === "" || task.taskId.toString() === searchId,
-                )
-                .map((task) => (
-                  <li
-                    key={task.taskId}
-                    className={`task-item ${task.status ? "task-completed" : ""} ${task.isExpired ? "task-expired" : ""}`}
-                  >
-                    <h3 className="task-header">
-                        <span>Task ID: {task.taskId}</span>
-                        <span>Task Title: {task.title}</span>
-                        <span>Due Date: {task.dueDateTime.slice(0, 10)}</span>
-                        <span>Due Time: {task.dueDateTime.slice(11, 16)}</span>
-                    </h3>
-
-                    <hr className="task-divider" />
-
-                    <textarea className="task-li-text" readOnly>
-                      {task.description}
-                    </textarea>
-
-                    <div className="task-btns">
-                      <button
-                        className="delete-btn"
-                        onClick={() => deleteTask(task.taskId)}
-                      >
-                        <BiSolidTrash />
-                      </button>
-                      <button
-                        className="done-btn"
-                        onClick={() => toggleStatus(task)}
-                      >
-                        {task.status ? <BiChevronDownCircle /> : <BiCircle />}
-                      </button>
-                    </div>
-                  </li>
-                ))}
-            </ul>
-          </div>
+          <ActiveTasks
+            tasksWithExpiry={tasksWithExpiry}
+            searchId={searchId}
+            setSearchId={setSearchId}
+            deleteTask={deleteTask}
+            toggleStatus={toggleStatus}
+          />
         )}
 
         {activeTab === "completed" && (
-          <div className="tasks-container">
-            <div className="sticky-search">
-              <h3>Search by ID:</h3>
-              <br />
-              <input
-                className="id-search-bar"
-                type="text"
-                placeholder="Enter an ID to filter..."
-                value={searchId}
-                onChange={(e) => setSearchId(e.target.value)}
-              />
-            </div>
-
-            <ul className="task-list">
-              {tasksWithExpiry
-                .filter((task) => task.status === true)
-                .filter(
-                  (task) =>
-                    searchId === "" || task.taskId.toString() === searchId,
-                )
-                .map((task) => (
-                  <li
-                    key={task.taskId}
-                    className={`task-item ${task.status ? "task-completed" : ""} ${task.isExpired ? "task-expired" : ""}`}
-                  >
-                    <h3 className="task-header">
-                        <span>Task ID: {task.taskId}</span>
-                        <span>Task Title: {task.title}</span>
-                        <span>Due Date: {task.dueDateTime.slice(0, 10)}</span>
-                        <span>Due Time: {task.dueDateTime.slice(11, 16)}</span>
-                    </h3>
-
-                    <hr className="task-divider" />
-
-                    <textarea className="task-li-text" readOnly>
-                      {task.description}
-                    </textarea>
-
-                    <div className="task-btns">
-                      <button
-                        className="delete-btn"
-                        onClick={() => deleteTask(task.taskId)}
-                      >
-                        <BiSolidTrash />
-                      </button>
-                      <button
-                        className="done-btn"
-                        onClick={() => toggleStatus(task)}
-                      >
-                        {task.status ? <BiChevronDownCircle /> : <BiCircle />}
-                      </button>
-                    </div>
-                  </li>
-                ))}
-            </ul>
-          </div>
+          <CompletedTasks
+            tasksWithExpiry={tasksWithExpiry}
+            searchId={searchId}
+            setSearchId={setSearchId}
+            deleteTask={deleteTask}
+            toggleStatus={toggleStatus}
+          />
         )}
       </div>
     </div>
