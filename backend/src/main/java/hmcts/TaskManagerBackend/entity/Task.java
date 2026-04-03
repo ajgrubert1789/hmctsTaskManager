@@ -1,19 +1,10 @@
 package hmcts.TaskManagerBackend.entity;
-
-// Importing required classes (using jakarta.persistence now)
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.data.annotation.CreatedDate;
-
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
-
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Entity
 @Data
@@ -21,9 +12,9 @@ import java.util.Date;
 @AllArgsConstructor
 @Builder
 @EntityListeners(AuditingEntityListener.class)
+
 //@Getter
 //@Setter
-
 // Class
 public class Task {
 
@@ -45,5 +36,8 @@ public class Task {
     @Column(columnDefinition = "TEXT")
     private String description ;
     private Boolean status;
+
+    @Column(nullable = false)
+    private Boolean isManualOverride = false;
 
 }

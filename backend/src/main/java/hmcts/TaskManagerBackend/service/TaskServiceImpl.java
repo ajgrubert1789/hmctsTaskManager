@@ -64,9 +64,10 @@ public class TaskServiceImpl
             taskDB.setTitle(task.getTitle());
         }
 
-        if (task.getDescription() != null) {
+        if (task.getDescription() != null && !task.getDescription().trim().isEmpty()) {
             taskDB.setDescription(task.getDescription());
         }
+
 
         if (task.getStatus() != null) {
             taskDB.setStatus(task.getStatus());
@@ -74,6 +75,10 @@ public class TaskServiceImpl
 
         if (task.getDueDateTime() != null) {
             taskDB.setDueDateTime(task.getDueDateTime());
+        }
+
+        if (task.getIsManualOverride() != null) {
+            taskDB.setIsManualOverride(task.getIsManualOverride());
         }
 
 
