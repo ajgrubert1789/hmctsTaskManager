@@ -7,9 +7,9 @@ import AddTask from "./components/AddTask";
 import UpdateTask from "./components/UpdateTask";
 
 function App() {
-  // -----------------------------
+
   // State
-  // -----------------------------
+
   const [tasks, setTasks] = useState([]);
   const [taskInput, setTaskInput] = useState("");
   const [titleInput, setTitleInput] = useState("");
@@ -53,9 +53,9 @@ function App() {
     }
   };
 
-  // -----------------------------
+
   // Fetch all tasks
-  // -----------------------------
+
   const getAllTasks = async () => {
     try {
       const response = await axios.get("http://localhost:8082/tasks");
@@ -66,9 +66,9 @@ function App() {
     }
   };
 
-  // -----------------------------
+
   // Load tasks on mount
-  // -----------------------------
+
   useEffect(() => {
     const fetchTasks = async () => {
       await getAllTasks();
@@ -92,9 +92,9 @@ function App() {
     });
   }, [tasks]);
 
-  // -----------------------------
+
   // Create Task
-  // -----------------------------
+
   const createTask = async (e) => {
     e.preventDefault();
     if (!taskInput.trim()) return;
@@ -121,9 +121,8 @@ function App() {
     }
   };
 
-  // -----------------------------
+
   // Delete Task
-  // -----------------------------
   const deleteTask = async (taskId) => {
     if (!window.confirm("Are you sure you want to proceed?")) return;
 
@@ -135,9 +134,8 @@ function App() {
     }
   };
 
-  // -----------------------------
+
   // Update Task
-  // -----------------------------
   const updateTask = async (e) => {
     e.preventDefault();
 
@@ -218,9 +216,8 @@ function App() {
     { id: "completed", label: "Completed" },
   ];
 
-  // -----------------------------
+
   // UI
-  // -----------------------------
   return (
     <div className="container">
       <div className="task-header">
